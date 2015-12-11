@@ -17,17 +17,52 @@
 # Date: 07/28/2013
 
 
-FROM ubuntu:14.04
-MAINTAINER Roberto G. Hashioka "roberto_hashioka@hotmail.com"
+FROM ubuntu:latest
 
 RUN apt-get update -y
-RUN apt-get upgrade -y
+RUN apt-get install -y  rox-filer openssh-server pwgen xserver-xephyr xdm fluxbox xvfb sudo xterm
 
+
+# Install some tools required for creating the image
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends \
+		curl \
+		unzip \
+		ca-certificates
+
+# Install wine and related packages
+RUN dpkg --add-architecture i386 \
+		&& apt-get update \
+		&& apt-get install -y --no-install-recommends \
+				wine \
+				wine32 \
+		&& rm -rf /var/lib/apt/lists/*
+
+# Use the latest version of winetricks
+RUN curl -SL 'https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks' -o /usr/local/bin/winetricks \
+		&& chmod +x /usr/local/bin/winetricks
+
+# Get latest version of mono for wine
+RUN mkdir -p /usr/share/wine/mono \
+	&& curl -SL 'http://sourceforge.net/projects/wine/files/Wine%20Mono/$WINE_MONO_VERSION/wine-mono-$WINE_MONO_VERSION.msi/download' -o /usr/share/wine/mono/wine-mono-$WINE_MONO_VERSION.msi \
+	&& chmod +x /usr/share/wine/mono/wine-mono-$WINE_MONO_VERSION.msi
+
+
+
+
+RUN sudo apt-get update \
+	&& sudo apt-get -y install --no-install-recommends software-properties-common curl \
+	&& curl http://winswitch.org/gpg.asc | sudo apt-key add - \
+	&& sudo sh -c 'echo "deb http://winswitch.org/ trusty main" > /etc/apt/sources.list.d/winswitch.list' \
+	&& sudo add-apt-repository universe \
+	&& sudo apt-get update \
+	&& sudo apt-get -y install --no-install-recommends xpra xvfb \
+	&& sudo apt-get clean \
+	&& sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 # Set the env variable DEBIAN_FRONTEND to noninteractive
 ENV DEBIAN_FRONTEND noninteractive
 
 # Installing the environment required: xserver, xdm, flux box, roc-filer and ssh
-RUN apt-get install -y xpra rox-filer openssh-server pwgen xserver-xephyr xdm fluxbox xvfb sudo
 
 # Configuring xdm to allow connections from any IP address and ssh to allow X11 Forwarding. 
 RUN sed -i 's/DisplayManager.requestPort/!DisplayManager.requestPort/g' /etc/X11/xdm/xdm-config
@@ -46,13 +81,9 @@ RUN dpkg-divert --local --rename --add /sbin/initctl && ln -sf /bin/true /sbin/i
 # Then we are going to delete the postinst fuse file and try to install it again!
 # Thanks Jerome for helping me with this workaround solution! :)
 # Now we are able to install the libreoffice-java package  
-RUN apt-get -y install fuse  || :
-RUN rm -rf /var/lib/dpkg/info/fuse.postinst
-RUN apt-get -y install fuse
 
 # Installing the apps: Firefox, flash player plugin, LibreOffice and xterm
 # libreoffice-base installs libreoffice-java mentioned before
-RUN apt-get install -y libreoffice-base firefox libreoffice-gtk libreoffice-calc xterm
 
 # Set locale (fix the locale warnings)
 RUN localedef -v -c -i en_US -f UTF-8 en_US.UTF-8 || :
