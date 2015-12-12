@@ -20,32 +20,35 @@
 FROM ubuntu:latest
 
 RUN apt-get update -y
-RUN apt-get install -y  rox-filer openssh-server pwgen xserver-xephyr xdm fluxbox xvfb sudo xterm
+RUN apt-get install -y  libjpeg-dev cabextract rox-filer openssh-server pwgen xserver-xephyr xdm fluxbox xvfb sudo xterm
 
 
 # Install some tools required for creating the image
-RUN apt-get update \
+RUN apt-get update -y \
 	&& apt-get install -y --no-install-recommends \
 		curl \
 		unzip \
-		ca-certificates
+		software-properties-common \
+	&& add-apt-repository ppa:ubuntu-wine/ppa
 
 # Install wine and related packages
+# Define which versions we need
+ENV WINE_MONO_VERSION 4.5.6
+ENV WINE_GECKO_VERSION 2.40
+
 RUN dpkg --add-architecture i386 \
-		&& apt-get update \
-		&& apt-get install -y --no-install-recommends \
-				wine \
-				wine32 \
-		&& rm -rf /var/lib/apt/lists/*
+	&& apt-get update -y \
+	&& apt-get install -y --no-install-recommends \
+		wine1.7 \
+		wine-gecko$WINE_GECKO_VERSION:i386 \
+		wine-gecko$WINE_GECKO_VERSION:amd64 \
+		wine-mono$WINE_MONO_VERSION \
+	&& rm -rf /var/lib/apt/lists/*
+
 
 # Use the latest version of winetricks
 RUN curl -SL 'https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks' -o /usr/local/bin/winetricks \
 		&& chmod +x /usr/local/bin/winetricks
-
-# Get latest version of mono for wine
-RUN mkdir -p /usr/share/wine/mono \
-	&& curl -SL 'http://sourceforge.net/projects/wine/files/Wine%20Mono/$WINE_MONO_VERSION/wine-mono-$WINE_MONO_VERSION.msi/download' -o /usr/share/wine/mono/wine-mono-$WINE_MONO_VERSION.msi \
-	&& chmod +x /usr/share/wine/mono/wine-mono-$WINE_MONO_VERSION.msi
 
 
 
@@ -92,5 +95,21 @@ RUN localedef -v -c -i en_US -f UTF-8 en_US.UTF-8 || :
 ADD . /src
 
 EXPOSE 22
+# TODO other ports to expose
+
+
+# Create the directory needed to run the sshd daemon
+RUN mkdir /var/run/sshd 
+
+# Add docker user and generate a random password with 12 characters that includes at least one capital letter and number.
+RUN useradd -m -d /home/docker  docker
+RUN echo 'docker:docker' | chpasswd
+RUN sed -Ei 's/adm:x:4:/docker:x:4:docker/' /etc/group
+RUN adduser docker sudo
+
+# Set the default shell as bash for docker user.
+RUN chsh -s /bin/bash docker
+
+
 # Start xdm and ssh services.
 CMD ["/bin/bash", "/src/startup.sh"]
