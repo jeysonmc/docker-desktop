@@ -95,6 +95,8 @@ RUN localedef -v -c -i en_US -f UTF-8 en_US.UTF-8 || :
 ADD . /src
 
 EXPOSE 22
+EXPOSE 54297
+EXPOSE 64297
 # TODO other ports to expose
 
 
